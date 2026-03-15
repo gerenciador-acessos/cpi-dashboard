@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Ocorrências — CPI/PMMA</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:    #080f0a;
+  --bg2:   #0d1a10;
+  --bg3:   #122016;
+  --bg4:   #172918;
+  --g700:  #2D6A4F;
+  --g600:  #40916C;
+  --g400:  #74C69D;
+  --g200:  #D8F3DC;
+  --gold:  #C9A84C;
+  --glt:   #F0D98A;
+  --white: #EEF5F0;
+  --gray:  #5A7A65;
+  --red:   #E05252;
+  --purp:  #9B6DD6;
+  --orng:  #E07A30;
+  --blue:  #4A8FD9;
+  --teal:  #3ABFBF;
+  --pink:  #D94A8F;
+  --lime:  #8FD94A;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--white);min-height:100vh;}
+
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(64,145,108,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(64,145,108,.03) 1px,transparent 1px);
+  background-size:48px 48px;pointer-events:none;z-index:0;
+}
+
+.wrap{position:relative;z-index:1;max-width:1500px;margin:0 auto;padding:0 20px 60px;}
+
+/* ── LOADING ── */
+#loading{
+  position:fixed;inset:0;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:20px;z-index:999;transition:opacity .5s;
+}
+#loading.hidden{opacity:0;pointer-events:none;}
+.spin{width:44px;height:44px;border:2px solid var(--g700);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.load-txt{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--g400);letter-spacing:2.5px;}
+.load-sub{font-size:10px;color:var(--gray);letter-spacing:1px;margin-top:-12px;}
+
+/* ── HEADER ── */
+header{
+  border-bottom:1px solid var(--g700);
+  padding:16px 0 12px;
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:12px;margin-bottom:20px;
+}
+.hd-left{display:flex;align-items:center;gap:14px;}
+.brasao{
+  width:50px;height:50px;border:2px solid var(--gold);border-radius:50%;
+  background:var(--bg3);display:flex;align-items:center;justify-content:center;
+  font-size:22px;flex-shrink:0;
+}
+.hd-sup{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--g400);text-transform:uppercase;}
+.hd-title{font-family:'Rajdhani',sans-serif;font-size:24px;font-weight:700;color:var(--white);letter-spacing:.5px;line-height:1;}
+.hd-title span{color:var(--gold);}
+.hd-sub{font-size:11px;color:var(--gray);margin-top:3px;}
+
+.hd-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.period{
+  background:var(--bg3);border:1px solid var(--g700);border-radius:3px;
+  padding:6px 14px;font-family:'IBM Plex Mono',monospace;
+  font-size:11px;color:var(--glt);letter-spacing:.5px;
+}
+.st-bar{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--gray);}
+.st-dot{width:7px;height:7px;border-radius:50%;background:var(--g400);}
+.st-dot.pulse{animation:pulse .7s infinite;background:var(--gold);}
+.st-dot.err{background:var(--red);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.15}}
+.cdown{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--gray);letter-spacing:1px;}
+
+.btn-ref{
+  background:transparent;border:1px solid var(--g600);color:var(--g400);
+  font-family:'IBM Plex Sans',sans-serif;font-size:11px;letter-spacing:.3px;
+  padding:6px 12px;border-radius:3px;cursor:pointer;transition:all .15s;
+  display:flex;align-items:center;gap:5px;
+}
+.btn-ref:hover{background:rgba(64,145,108,.15);border-color:var(--g400);}
+.btn-ref.go svg{animation:spin .8s linear infinite;}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:2px;margin-bottom:20px;flex-wrap:wrap;}
+.tab{
+  background:var(--bg2);border:1px solid var(--g700);
+  color:var(--gray);font-family:'Rajdhani',sans-serif;
+  font-size:12px;font-weight:600;letter-spacing:1px;
+  padding:7px 16px;border-radius:3px;cursor:pointer;
+  transition:all .15s;
+}
+.tab:hover{color:var(--g400);border-color:var(--g600);}
+.tab.active{background:var(--g700);border-color:var(--g600);color:var(--glt);}
+
+/* ── KPIs ── */
+.kpi-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  gap:1px;background:var(--g700);border:1px solid var(--g700);
+  border-radius:4px;overflow:hidden;margin-bottom:20px;
+}
+.kpi{background:var(--bg2);padding:16px 16px 14px;position:relative;overflow:hidden;transition:background .2s;}
+.kpi:hover{background:var(--bg3);}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.kpi.tot::after{background:var(--gold);}
+.kpi.hom::after{background:var(--red);}
+.kpi.fem::after{background:var(--purp);}
+.kpi.lat::after{background:var(--orng);}
+.kpi.sui::after{background:var(--blue);}
+.kpi.cad::after{background:var(--gray);}
+.kpi.arm::after{background:var(--teal);}
+.kpi.rob::after{background:var(--pink);}
+.kpi.ban::after{background:var(--red);}
+.kpi.seq::after{background:var(--purp);}
+.kpi.vei::after{background:var(--lime);}
+.kpi.mip::after{background:var(--orng);}
+.kpi-ico{font-size:16px;margin-bottom:4px;opacity:.75;}
+.kpi-val{font-family:'Rajdhani',sans-serif;font-size:34px;font-weight:700;line-height:1;}
+.kpi.tot .kpi-val{color:var(--glt);}
+.kpi.hom .kpi-val{color:var(--red);}
+.kpi.fem .kpi-val{color:var(--purp);}
+.kpi.lat .kpi-val{color:var(--orng);}
+.kpi.sui .kpi-val{color:var(--blue);}
+.kpi.cad .kpi-val{color:var(--gray);}
+.kpi.arm .kpi-val{color:var(--teal);}
+.kpi.rob .kpi-val{color:var(--pink);}
+.kpi.ban .kpi-val{color:var(--red);}
+.kpi.seq .kpi-val{color:var(--purp);}
+.kpi.vei .kpi-val{color:var(--lime);}
+.kpi.mip .kpi-val{color:var(--orng);}
+.kpi-lbl{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray);margin-top:4px;}
+
+/* ── CARDS ── */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;}
+.card{background:var(--bg2);border:1px solid var(--g700);border-radius:4px;overflow:hidden;}
+.card.full{grid-column:1/-1;}
+.card-hd{
+  background:var(--bg3);border-bottom:1px solid var(--g700);
+  padding:9px 16px;display:flex;align-items:center;justify-content:space-between;
+}
+.card-title{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;color:var(--glt);letter-spacing:1.5px;text-transform:uppercase;}
+.card-badge{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--gray);letter-spacing:1px;}
+.card-body{padding:16px;}
+.card-body canvas{max-height:260px;}
+.card.full .card-body canvas{max-height:230px;}
+
+/* ── CPAI DETAIL GRID ── */
+.cpai-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+.cpai-card{
+  background:var(--bg2);border:1px solid var(--g700);border-radius:4px;
+  overflow:hidden;
+}
+.cpai-hd{
+  background:var(--bg3);border-bottom:1px solid var(--g700);
+  padding:8px 14px;display:flex;align-items:center;justify-content:space-between;
+}
+.cpai-name{font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:var(--glt);letter-spacing:1px;}
+.cpai-total{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--gold);}
+.cpai-body{padding:12px 14px;}
+.cpai-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(45,106,79,.2);}
+.cpai-row:last-child{border-bottom:none;}
+.cpai-type{font-size:10px;color:var(--gray);}
+.cpai-num{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;}
+.cpai-num.nz{color:var(--g400);}
+.cpai-num.z{color:rgba(90,122,101,.3);}
+
+/* ── TABELA ── */
+.dtable{width:100%;border-collapse:collapse;font-size:11px;}
+.dtable th{
+  background:var(--bg3);color:var(--glt);
+  font-family:'Rajdhani',sans-serif;font-size:10px;letter-spacing:1.5px;
+  text-transform:uppercase;padding:8px 10px;
+  border-bottom:1px solid var(--g700);text-align:center;white-space:nowrap;
+}
+.dtable th:first-child{text-align:left;}
+.dtable td{
+  padding:6px 10px;border-bottom:1px solid rgba(45,106,79,.2);
+  text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--g400);
+}
+.dtable td:first-child{text-align:left;color:var(--white);font-family:'IBM Plex Sans',sans-serif;font-size:11px;}
+.dtable tr:hover td{background:rgba(64,145,108,.05);}
+.dtable .tr-tot td{color:var(--glt);font-weight:600;border-top:1px solid var(--g600);}
+.dtable .z{color:rgba(90,122,101,.25)!important;}
+
+/* ── ERROR ── */
+.err-box{
+  background:rgba(224,82,82,.07);border:1px solid var(--red);
+  border-radius:4px;padding:14px 18px;color:#EF9A9A;
+  font-size:12px;display:none;margin-bottom:16px;line-height:1.6;
+}
+
+footer{
+  border-top:1px solid var(--g700);padding:12px 0 0;
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  font-size:10px;color:var(--gray);letter-spacing:.5px;
+}
+footer strong{color:var(--glt);}
+
+@media(max-width:900px){
+  .grid2,.grid3{grid-template-columns:1fr;}
+  .card.full{grid-column:1;}
+  .cpai-grid{grid-template-columns:repeat(2,1fr);}
+  .kpi-grid{grid-template-columns:repeat(4,1fr);}
+}
+@media(max-width:500px){
+  .cpai-grid{grid-template-columns:1fr 1fr;}
+  .kpi-grid{grid-template-columns:repeat(3,1fr);}
+}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spin"></div>
+  <div class="load-txt">CARREGANDO DADOS</div>
+  <div class="load-sub" id="load-sub">Iniciando...</div>
+</div>
+
+<div class="wrap">
+<header>
+  <div class="hd-left">
+    <div class="brasao">🛡️</div>
+    <div>
+      <div class="hd-sup">Polícia Militar do Maranhão &nbsp;·&nbsp; CPI</div>
+      <div class="hd-title">MAPA DE <span>OCORRÊNCIAS</span></div>
+      <div class="hd-sub">CEL QOPM Augusto Carlos Soares Magalhães &nbsp;·&nbsp; Cmt CPI</div>
+    </div>
+  </div>
+  <div class="hd-right">
+    <div class="period" id="period">⏳ Carregando...</div>
+    <div class="st-bar">
+      <div class="st-dot" id="st-dot"></div>
+      <span id="st-txt">Aguardando</span>
+    </div>
+    <div class="cdown" id="cdown"></div>
+    <button class="btn-ref" id="btn-ref" onclick="loadAll()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      Atualizar
+    </button>
+  </div>
+</header>
+
+<div class="err-box" id="err-box"></div>
+
+<!-- TABS -->
+<div class="tabs" id="tabs">
+  <div class="tab active" onclick="switchTab('geral')">📊 CPI GERAL</div>
+  <div class="tab" onclick="switchTab('cpai1')">CPAI-1</div>
+  <div class="tab" onclick="switchTab('cpai2')">CPAI-2</div>
+  <div class="tab" onclick="switchTab('cpai3')">CPAI-3</div>
+  <div class="tab" onclick="switchTab('cpai4')">CPAI-4</div>
+  <div class="tab" onclick="switchTab('cpai5')">CPAI-5</div>
+  <div class="tab" onclick="switchTab('cpai6')">CPAI-6</div>
+  <div class="tab" onclick="switchTab('cpai7')">CPAI-7</div>
+  <div class="tab" onclick="switchTab('cpai8')">CPAI-8</div>
+</div>
+
+<!-- PAINEL GERAL -->
+<div id="panel-geral">
+  <div class="kpi-grid" id="kpi-grid"></div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-hd"><span class="card-title">Distribuição por Tipo</span><span class="card-badge">PIZZA</span></div>
+      <div class="card-body"><canvas id="c-pizza"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><span class="card-title">Total por CPAI</span><span class="card-badge">BARRAS</span></div>
+      <div class="card-body"><canvas id="c-cpai"></canvas></div>
+    </div>
+  </div>
+  <div class="grid2" style="margin-bottom:16px">
+    <div class="card full">
+      <div class="card-hd"><span class="card-title">Tipo × CPAI</span><span class="card-badge">BARRAS EMPILHADAS</span></div>
+      <div class="card-body"><canvas id="c-stack"></canvas></div>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-hd"><span class="card-title">Perfil por CPAI</span><span class="card-badge">RADAR</span></div>
+      <div class="card-body"><canvas id="c-radar"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><span class="card-title">Ranking de Tipos</span><span class="card-badge">BARRAS HORIZ.</span></div>
+      <div class="card-body"><canvas id="c-rank"></canvas></div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-hd"><span class="card-title">Detalhamento Completo — CPI</span><span class="card-badge">TABELA</span></div>
+    <div class="card-body" style="padding:0;overflow-x:auto">
+      <table class="dtable"><thead><tr id="tbl-head"></tr></thead><tbody id="tbl-body"></tbody></table>
+    </div>
+  </div>
+  <!-- Cards resumo por CPAI -->
+  <div style="font-family:'Rajdhani',sans-serif;font-size:12px;color:var(--glt);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--g700);">
+    RESUMO POR CPAI
+  </div>
+  <div class="cpai-grid" id="cpai-cards"></div>
+</div>
+
+<!-- PAINEIS CPAI individuais -->
+<div id="panel-cpai" style="display:none">
+  <div class="kpi-grid" id="cpai-kpi-grid"></div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-hd"><span class="card-title" id="cpai-chart-title">Distribuição</span><span class="card-badge">PIZZA</span></div>
+      <div class="card-body"><canvas id="cc-pizza"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><span class="card-title">Ranking de Tipos</span><span class="card-badge">BARRAS HORIZ.</span></div>
+      <div class="card-body"><canvas id="cc-rank"></canvas></div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-hd"><span class="card-title" id="cpai-tbl-title">Detalhamento</span><span class="card-badge">TABELA</span></div>
+    <div class="card-body" style="padding:0;overflow-x:auto">
+      <table class="dtable"><thead><tr id="ctbl-head"></tr></thead><tbody id="ctbl-body"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div><strong>CPI · PMMA</strong> &nbsp;·&nbsp; Dashboard de Ocorrências &nbsp;·&nbsp; Uso interno</div>
+  <div id="ft-update">—</div>
+</footer>
+</div>
+
+<script>
+// ── CONFIGURAÇÃO ─────────────────────────────────────────────
+const SHEET_ID = '1Kt4BC3hB40K6bRhPh8uuvq4oFYcungjnWsa_FhfllzQ';
+const SOURCES = {
+  geral:  '1577955382',
+  cpai1:  '0',
+  cpai2:  '1741279987',
+  cpai3:  '732173650',
+  cpai4:  '144173341',
+  cpai5:  '2041527041',
+  cpai6:  '1485505647',
+  cpai7:  '1116112782',
+  cpai8:  '226422754',
+};
+const CPAI_NAMES = ['CPAI-1','CPAI-2','CPAI-3','CPAI-4','CPAI-5','CPAI-6','CPAI-7','CPAI-8'];
+const INTERVAL  = 60;
+
+// ── PALETA ───────────────────────────────────────────────────
+const TYPE_COLOR = {
+  'HOMICÍDIO':'#E05252','FEMICÍDIO':'#9B6DD6','LATROCÍNIO':'#E07A30',
+  'SUICÍDIO':'#4A8FD9','ACHADO DE CADÁVER':'#5A7A65','ARMA DE FOGO':'#3ABFBF',
+  'ROUBO':'#D94A8F','ROUBO A BANCO':'#E05252','SEQUESTRO':'#9B6DD6',
+  'VEÍCULOS RECUPERADOS':'#8FD94A','MIP':'#E07A30',
+};
+const CPAI_COL = ['#40916C','#C9A84C','#4A8FD9','#E05252','#9B6DD6','#3ABFBF','#D94A8F','#8FD94A'];
+const KPI_DEF = [
+  {key:'tot',ico:'📊',lbl:'Total Geral',   match:null},
+  {key:'hom',ico:'🔴',lbl:'Homicídio',     match:'HOMICÍDIO'},
+  {key:'fem',ico:'🟣',lbl:'Femicídio',     match:'FEMICÍDIO'},
+  {key:'lat',ico:'🟠',lbl:'Latrocínio',    match:'LATROCÍNIO'},
+  {key:'sui',ico:'🔵',lbl:'Suicídio',      match:'SUICÍDIO'},
+  {key:'cad',ico:'⚫',lbl:'Achado Cadáver',match:'ACHADO DE CADÁVER'},
+  {key:'arm',ico:'🔵',lbl:'Arma de Fogo',  match:'ARMA DE FOGO'},
+  {key:'rob',ico:'🔴',lbl:'Roubo',         match:'ROUBO'},
+  {key:'ban',ico:'🔴',lbl:'Roubo a Banco', match:'ROUBO A BANCO'},
+  {key:'seq',ico:'🟣',lbl:'Sequestro',     match:'SEQUESTRO'},
+  {key:'vei',ico:'🟢',lbl:'Veículos Recup.',match:'VEÍCULOS RECUPERADOS'},
+  {key:'mip',ico:'🟠',lbl:'MIP',           match:'MIP'},
+];
+
+// ── ESTADO ───────────────────────────────────────────────────
+let allData    = {};   // { geral, cpai1..cpai8 }
+let charts     = {};
+let activeTab  = 'geral';
+let cdownVal   = INTERVAL;
+let cdownInt   = null;
+
+// ── CSV ──────────────────────────────────────────────────────
+function csvUrl(gid){ return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}&_=${Date.now()}`; }
+
+function parseCSV(text){
+  return text.split('\n').map(line=>{
+    const cells=[]; let cur='',inQ=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'){inQ=!inQ;continue;}
+      if(c===','&&!inQ){cells.push(cur.trim());cur='';continue;}
+      cur+=c;
+    }
+    cells.push(cur.trim());
+    return cells;
+  });
+}
+
+function cleanType(v){
+  return String(v||'').replace(/\*/g,'').replace(/^[a-z]\)\s*/i,'').replace(/:$/,'').trim().toUpperCase();
+}
+function cleanNum(v){
+  const n=parseInt(String(v||'').replace(/[^\d]/g,''));
+  return isNaN(n)?0:n;
+}
+function cap(s){ return s.charAt(0)+s.slice(1).toLowerCase(); }
+
+// ── PARSE ABA GERAL (tem colunas CPAI) ───────────────────────
+function parseGeral(csv){
+  const rows=parseCSV(csv);
+  let period='',cpais=[],typeRows=[],headerRow=-1;
+  for(let i=0;i<rows.length;i++){
+    const r=rows[i], joined=r.join(' ');
+    if(/\d{2}\/\d{2}\/\d{4}/.test(joined)&&/para/i.test(joined))
+      period=joined.replace(/\*/g,'').trim();
+    if(r.some(c=>/CPAI[-\s]*\d/i.test(c))){
+      headerRow=i;
+      cpais=r.slice(2).map(c=>String(c).replace(/\*/g,'').trim()).filter(c=>/CPAI/i.test(c));
+      break;
+    }
+  }
+  if(headerRow>=0){
+    for(let i=headerRow+1;i<rows.length;i++){
+      const r=rows[i];
+      const raw=r[0]||r[1]||'';
+      const type=cleanType(raw);
+      if(!type||type.length<3||/RESPONSÁVEL|PERÍODO|UPM|TIPO/i.test(type)) continue;
+      const total=cleanNum(r[1]||r[2]);
+      const byCpai=cpais.map((_,idx)=>cleanNum(r[2+idx]));
+      typeRows.push({type,total,byCpai});
+    }
+  }
+  return {period,cpais,typeRows};
+}
+
+// ── PARSE ABA CPAI INDIVIDUAL (só quant + UPM) ───────────────
+function parseCpai(csv, cpaiName){
+  const rows=parseCSV(csv);
+  let period='', typeRows=[], headerRow=-1;
+  for(let i=0;i<rows.length;i++){
+    const r=rows[i], joined=r.join(' ');
+    if(/\d{2}\/\d{2}\/\d{4}/.test(joined)&&/para/i.test(joined))
+      period=joined.replace(/\*/g,'').trim();
+    if(r.some(c=>/QUANTITATIVO/i.test(c))){headerRow=i;break;}
+  }
+  if(headerRow>=0){
+    for(let i=headerRow+1;i<rows.length;i++){
+      const r=rows[i];
+      const raw=r[0]||r[1]||'';
+      const type=cleanType(raw);
+      if(!type||type.length<3||/RESPONSÁVEL|PERÍODO|UPM|TIPO|CMT/i.test(type)) continue;
+      const total=cleanNum(r[1]||r[2]);
+      const upm=String(r[2]||r[3]||'').replace(/\*/g,'').trim();
+      typeRows.push({type,total,upm});
+    }
+  }
+  return {period,cpaiName,typeRows};
+}
+
+// ── FETCH TUDO ───────────────────────────────────────────────
+async function loadAll(){
+  setStatus('pulse','Carregando...');
+  document.getElementById('btn-ref').classList.add('go');
+  const keys=Object.keys(SOURCES);
+  const total=keys.length; let done=0;
+
+  await Promise.all(keys.map(async key=>{
+    try{
+      document.getElementById('load-sub').textContent=`Carregando ${key.toUpperCase()}...`;
+      const res=await fetch(csvUrl(SOURCES[key]));
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const csv=await res.text();
+      if(key==='geral') allData[key]=parseGeral(csv);
+      else allData[key]=parseCpai(csv, key.replace('cpai','CPAI-').toUpperCase());
+      done++;
+      document.getElementById('load-sub').textContent=`${done}/${total} abas carregadas`;
+    }catch(e){
+      console.warn('Erro ao carregar '+key, e);
+      allData[key]=null;
+    }
+  }));
+
+  renderAll();
+  setStatus('','Atualizado '+new Date().toLocaleTimeString('pt-BR'));
+  document.getElementById('err-box').style.display='none';
+  document.getElementById('btn-ref').classList.remove('go');
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('ft-update').textContent='Última atualização: '+new Date().toLocaleString('pt-BR');
+  resetCountdown();
+}
+
+// ── RENDER GERAL ─────────────────────────────────────────────
+function renderAll(){
+  if(allData.geral) renderGeral(allData.geral);
+  // Atualiza painel CPAI se estiver ativo
+  if(activeTab!=='geral') renderCpaiPanel(activeTab);
+}
+
+function renderGeral({period,cpais,typeRows}){
+  document.getElementById('period').textContent = period||'Período não identificado';
+
+  // KPIs
+  const total=typeRows.reduce((s,r)=>s+r.total,0);
+  let kpiHtml='';
+  KPI_DEF.forEach(k=>{
+    const val = k.match===null ? total :
+      (typeRows.find(r=>r.type.includes(k.match))||{total:0}).total;
+    kpiHtml+=`<div class="kpi ${k.key}"><div class="kpi-ico">${k.ico}</div><div class="kpi-val">${val}</div><div class="kpi-lbl">${k.lbl}</div></div>`;
+  });
+  document.getElementById('kpi-grid').innerHTML=kpiHtml;
+
+  destroyCharts(['pizza','cpai','stack','radar','rank']);
+
+  const labels=typeRows.map(r=>cap(r.type));
+  const totals=typeRows.map(r=>r.total);
+  const colors=labels.map(l=>TYPE_COLOR[l.toUpperCase()]||'#40916C');
+  const co={responsive:true,maintainAspectRatio:true,
+    plugins:{legend:{labels:{color:'#74C69D',font:{family:'IBM Plex Sans',size:10},padding:10}}}};
+  const sx={ticks:{color:'#74C69D',font:{size:9}},grid:{color:'rgba(45,106,79,.2)'}};
+  const sy={ticks:{color:'#F0D98A',font:{size:9}},grid:{color:'rgba(45,106,79,.2)'}};
+
+  // Pizza
+  charts.pizza=new Chart(document.getElementById('c-pizza'),{
+    type:'doughnut',
+    data:{labels,datasets:[{data:totals,backgroundColor:colors,borderColor:'#080f0a',borderWidth:2}]},
+    options:{...co,cutout:'52%'}
+  });
+
+  // Total por CPAI
+  const cpaiTots=cpais.map((_,ci)=>typeRows.reduce((s,r)=>s+(r.byCpai[ci]||0),0));
+  charts.cpai=new Chart(document.getElementById('c-cpai'),{
+    type:'bar',
+    data:{labels:cpais,datasets:[{label:'Ocorrências',data:cpaiTots,backgroundColor:CPAI_COL,borderRadius:3}]},
+    options:{...co,plugins:{...co.plugins,legend:{display:false}},scales:{x:sx,y:sy}}
+  });
+
+  // Stack
+  charts.stack=new Chart(document.getElementById('c-stack'),{
+    type:'bar',
+    data:{labels:cpais,datasets:typeRows.map((r,i)=>({
+      label:cap(r.type),data:r.byCpai,backgroundColor:colors[i],borderRadius:2
+    }))},
+    options:{...co,scales:{x:{...sx,stacked:true},y:{...sy,stacked:true}}}
+  });
+
+  // Radar
+  charts.radar=new Chart(document.getElementById('c-radar'),{
+    type:'radar',
+    data:{labels:cpais,datasets:typeRows.filter(r=>r.total>0).map((r,i)=>({
+      label:cap(r.type),data:r.byCpai,
+      borderColor:colors[i],backgroundColor:colors[i]+'18',
+      pointBackgroundColor:colors[i],pointRadius:3,borderWidth:1.5
+    }))},
+    options:{...co,scales:{r:{
+      ticks:{color:'#74C69D',font:{size:8},backdropColor:'transparent'},
+      grid:{color:'rgba(45,106,79,.25)'},
+      pointLabels:{color:'#F0D98A',font:{size:9}},
+      angleLines:{color:'rgba(45,106,79,.25)'},
+    }}}
+  });
+
+  // Rank
+  const sorted=[...typeRows].sort((a,b)=>b.total-a.total);
+  charts.rank=new Chart(document.getElementById('c-rank'),{
+    type:'bar',
+    data:{labels:sorted.map(r=>cap(r.type)),datasets:[{
+      label:'Total',data:sorted.map(r=>r.total),
+      backgroundColor:sorted.map(r=>TYPE_COLOR[r.type]||'#40916C'),borderRadius:3
+    }]},
+    options:{...co,indexAxis:'y',plugins:{...co.plugins,legend:{display:false}},scales:{x:sx,y:sy}}
+  });
+
+  // Tabela
+  const thead=document.getElementById('tbl-head');
+  const tbody=document.getElementById('tbl-body');
+  thead.innerHTML=`<th>Tipo de Ocorrência</th><th>Total</th>${cpais.map(c=>`<th>${c}</th>`).join('')}`;
+  tbody.innerHTML=typeRows.map(r=>`<tr>
+    <td>${cap(r.type)}</td>
+    <td class="${r.total===0?'z':''}">${r.total}</td>
+    ${r.byCpai.map(v=>`<td class="${v===0?'z':''}">${v}</td>`).join('')}
+  </tr>`).join('');
+  const ctots=cpais.map((_,ci)=>typeRows.reduce((s,r)=>s+(r.byCpai[ci]||0),0));
+  tbody.innerHTML+=`<tr class="tr-tot"><td>TOTAL GERAL</td><td>${total}</td>${ctots.map(v=>`<td>${v}</td>`).join('')}</tr>`;
+
+  // Cards resumo por CPAI
+  renderCpaiCards(cpais,typeRows);
+}
+
+function renderCpaiCards(cpais,typeRows){
+  const html=cpais.map((name,ci)=>{
+    const cTotal=typeRows.reduce((s,r)=>s+(r.byCpai[ci]||0),0);
+    const rows=typeRows.map(r=>{
+      const v=r.byCpai[ci]||0;
+      return `<div class="cpai-row">
+        <span class="cpai-type">${cap(r.type)}</span>
+        <span class="cpai-num ${v>0?'nz':'z'}">${v}</span>
+      </div>`;
+    }).join('');
+    return `<div class="cpai-card">
+      <div class="cpai-hd">
+        <span class="cpai-name">${name}</span>
+        <span class="cpai-total">${cTotal} OC.</span>
+      </div>
+      <div class="cpai-body">${rows}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('cpai-cards').innerHTML=html;
+}
+
+// ── RENDER CPAI INDIVIDUAL ───────────────────────────────────
+function renderCpaiPanel(tab){
+  const d=allData[tab];
+  if(!d||!d.typeRows) return;
+  const {cpaiName,typeRows}=d;
+
+  document.getElementById('cpai-chart-title').textContent=`Distribuição — ${cpaiName}`;
+  document.getElementById('cpai-tbl-title').textContent=`Detalhamento — ${cpaiName}`;
+
+  const total=typeRows.reduce((s,r)=>s+r.total,0);
+  let kpiHtml='';
+  KPI_DEF.forEach(k=>{
+    const val = k.match===null ? total :
+      (typeRows.find(r=>r.type.includes(k.match))||{total:0}).total;
+    kpiHtml+=`<div class="kpi ${k.key}"><div class="kpi-ico">${k.ico}</div><div class="kpi-val">${val}</div><div class="kpi-lbl">${k.lbl}</div></div>`;
+  });
+  document.getElementById('cpai-kpi-grid').innerHTML=kpiHtml;
+
+  destroyCharts(['cpizza','crank']);
+
+  const labels=typeRows.map(r=>cap(r.type));
+  const totals=typeRows.map(r=>r.total);
+  const colors=labels.map(l=>TYPE_COLOR[l.toUpperCase()]||'#40916C');
+  const co={responsive:true,maintainAspectRatio:true,
+    plugins:{legend:{labels:{color:'#74C69D',font:{family:'IBM Plex Sans',size:10},padding:10}}}};
+  const sx={ticks:{color:'#74C69D',font:{size:9}},grid:{color:'rgba(45,106,79,.2)'}};
+  const sy={ticks:{color:'#F0D98A',font:{size:9}},grid:{color:'rgba(45,106,79,.2)'}};
+
+  charts.cpizza=new Chart(document.getElementById('cc-pizza'),{
+    type:'doughnut',
+    data:{labels,datasets:[{data:totals,backgroundColor:colors,borderColor:'#080f0a',borderWidth:2}]},
+    options:{...co,cutout:'52%'}
+  });
+
+  const sorted=[...typeRows].sort((a,b)=>b.total-a.total);
+  charts.crank=new Chart(document.getElementById('cc-rank'),{
+    type:'bar',
+    data:{labels:sorted.map(r=>cap(r.type)),datasets:[{
+      label:'Total',data:sorted.map(r=>r.total),
+      backgroundColor:sorted.map(r=>TYPE_COLOR[r.type]||'#40916C'),borderRadius:3
+    }]},
+    options:{...co,indexAxis:'y',plugins:{...co.plugins,legend:{display:false}},scales:{x:sx,y:sy}}
+  });
+
+  // Tabela CPAI individual
+  const thead=document.getElementById('ctbl-head');
+  const tbody=document.getElementById('ctbl-body');
+  thead.innerHTML=`<th>Tipo de Ocorrência</th><th>Quantitativo</th><th>UPM / Cidade</th>`;
+  tbody.innerHTML=typeRows.map(r=>`<tr>
+    <td>${cap(r.type)}</td>
+    <td class="${r.total===0?'z':''}">${r.total}</td>
+    <td style="text-align:left;color:${r.total>0?'var(--g400)':'rgba(90,122,101,.3)'};font-family:'IBM Plex Sans',sans-serif;font-size:10px">${r.upm||'—'}</td>
+  </tr>`).join('');
+  tbody.innerHTML+=`<tr class="tr-tot"><td>TOTAL</td><td>${total}</td><td></td></tr>`;
+}
+
+// ── TABS ─────────────────────────────────────────────────────
+function switchTab(tab){
+  activeTab=tab;
+  document.querySelectorAll('.tab').forEach((el,i)=>{
+    const keys=['geral','cpai1','cpai2','cpai3','cpai4','cpai5','cpai6','cpai7','cpai8'];
+    el.classList.toggle('active',keys[i]===tab);
+  });
+  if(tab==='geral'){
+    document.getElementById('panel-geral').style.display='';
+    document.getElementById('panel-cpai').style.display='none';
+  } else {
+    document.getElementById('panel-geral').style.display='none';
+    document.getElementById('panel-cpai').style.display='';
+    renderCpaiPanel(tab);
+  }
+}
+
+// ── UTILS ────────────────────────────────────────────────────
+function destroyCharts(keys){
+  (keys||Object.keys(charts)).forEach(k=>{
+    if(charts[k]){try{charts[k].destroy();}catch(e){}delete charts[k];}
+  });
+}
+function setStatus(cls,msg){
+  document.getElementById('st-dot').className='st-dot'+(cls?' '+cls:'');
+  document.getElementById('st-txt').textContent=msg;
+}
+function resetCountdown(){
+  clearInterval(cdownInt); cdownVal=INTERVAL;
+  cdownInt=setInterval(()=>{
+    cdownVal--;
+    document.getElementById('cdown').textContent=`⏱ ${String(cdownVal).padStart(2,'0')}s`;
+    if(cdownVal<=0){clearInterval(cdownInt);loadAll();}
+  },1000);
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+loadAll();
+</script>
+</body>
+</html>
